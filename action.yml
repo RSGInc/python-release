@@ -30,7 +30,7 @@ runs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: {{ inputs.python-version }}
+        python-version: ${{ inputs.python-version }}
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
