@@ -1,0 +1,88 @@
+name: Python Release
+description: Bump semver version and create a new release
+inputs:
+  token:
+    description: GitHub token to use for performing tag and release
+    required: true
+  tag:
+    description: GitHub tag
+    required: true
+  python-version:
+    description: Python version
+    required: true
+  poetry-version:
+    description: Poetry version
+    required: false
+    default: 1.2.2
+  discussionCategory:
+    description: When provided this will generate a discussion of the specified category. The category must exist otherwise this will cause the action to fail. This isn't used with draft releases
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        token: ${{ inputs.token }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: {{ inputs.python-version }}
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: ${{ inputs.poetry-version }}
+        installer-parallel: true
+
+    - name: Bump Version
+      run: poetry version ${{ inputs.tag }}
+      shell: bash
+
+    - name: Git config
+      run: git config --global url."https://${{ inputs.token }}:@github.com/".insteadOf "https://github.com/"
+      shell: bash
+
+    - name: Create poetry.lock
+      run: poetry lock
+      shell: bash
+
+    - name: Commit files
+      id: bump_version
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "🔖 Bump version for release `${{ inputs.tag }}` [ci skip]"
+        branch: ${{ github.event.repository.default_branch }}
+        file_pattern: pyproject.toml poetry.lock
+        create_branch: false
+
+    - name: Remove tag
+      run: git push --delete origin ${{ inputs.tag }}
+      shell: bash
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: ${{ steps.bump_version.outputs.commit_hash }}
+
+    - name: Retag
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        commit_sha: ${{ steps.bump_version.outputs.commit_hash }}
+        custom_tag: ${{ inputs.tag }}
+        tag_prefix: ""
+
+    - name: Create a GitHub release
+      uses: ncipollo/release-action@v1.11.1
+      with:
+        tag: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        body: ${{ steps.tag_version.outputs.changelog }}
+        generateReleaseNotes: true
+        discussionCategory: ${{ inputs.discussionCategory }}
