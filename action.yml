@@ -71,7 +71,7 @@ runs:
 
     - name: Retag
       id: tag_version
-      uses: mathieudutour/github-tag-action@v6.0
+      uses: mathieudutour/github-tag-action@v6.1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         commit_sha: ${{ steps.bump_version.outputs.commit_hash }}
